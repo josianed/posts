@@ -277,6 +277,54 @@ class TestAPI(unittest.TestCase):
         data = json.loads(response.data.decode("ascii"))
         self.assertEqual(data["message"], "'body' is a required property")
 
+    def test_put_post(self):
+        """ Editing an existing post """
+
+        postA = models.Post(title="Example Post A", body="Just a test")
+        postB = models.Post(title="Example Post B", body="Still a test")
+
+        session.add_all([postA, postB])
+        session.commit()
+
+        response = self.client.get("/api/posts/{}".format(postA.id),
+            headers=[("Accept", "application/json")]
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/json")
+
+        post = json.loads(response.data.decode("ascii"))
+        self.assertEqual(post["title"], "Example Post A")
+        self.assertEqual(post["body"], "Just a test")
+
+        data = {
+            "title": "Example Put",
+            "body": "Just an edit test"
+        }
+
+        response = self.client.put("/api/posts/{}".format(postA.id),
+            data=json.dumps(data),
+            content_type="application/json",
+            headers=[("Accept", "application/json")]
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(urlparse(response.headers.get("Location")).path,
+                         "/api/posts/1")
+
+        data = json.loads(response.data.decode("ascii"))
+        self.assertEqual(data["id"], 1)
+        self.assertEqual(data["title"], "Example Put")
+        self.assertEqual(data["body"], "Just an edit test")
+
+        posts = session.query(models.Post).all()
+        self.assertEqual(len(posts), 2)
+
+        post = posts[0]
+        self.assertEqual(post.title, "Example Put")
+        self.assertEqual(post.body, "Just an edit test")
+
     def tearDown(self):
         """ Test teardown """
         session.close()
